@@ -143,17 +143,20 @@ class BertForSentimentRegression(BertPreTrainedModel):
     def __init__(self, config):
         super(BertForSentimentRegression, self).__init__(config)
         self.bert = BertModel(config)
-        self.dropout = nn.Dropout(p=0.3)
+        self.dropout = nn.Dropout(p=0.5)
         self.linear_pos = nn.Linear(config.hidden_size, 1)
         self.linear_neg = nn.Linear(config.hidden_size, 1)
         self.init_weights()
 
     def forward(self, input_ids, attention_mask=None):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-        pooled_output = outputs[1]
+        pooled_output = outputs.pooler_output
         pooled_output = self.dropout(pooled_output)
-        pos = self.linear_pos(pooled_output)
-        neg = self.linear_neg(pooled_output)
+        pos_logits = self.linear_pos(pooled_output)
+        neg_logits = self.linear_neg(pooled_output)
+        # Apply Sigmoid activation
+        pos = torch.sigmoid(pos_logits)
+        neg = torch.sigmoid(neg_logits) - 1
         return pos, neg
 
 def load_model(model_path, tokenizer_path):
@@ -190,7 +193,7 @@ def predict(model, tokenizer, texts, max_len=256):
 
 if __name__ == "__main__":
     # Paths to the model and tokenizer
-    model_path = "./results4/checkpoint-4000"
+    model_path = "./results7/checkpoint-37715"
     tokenizer_path = "bert-base-uncased"
 
     # Load the model and tokenizer
@@ -199,7 +202,7 @@ if __name__ == "__main__":
     # Example texts for prediction
     texts = [
         "I love this product!",
-        "This is the worst experience I've ever had."
+        "horrible never buy again, waste of money",
     ]
 
     # Make predictions

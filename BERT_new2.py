@@ -86,7 +86,6 @@ model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_l
 model.to(device)
 
 
-
 # TrainingArguments and Trainer
 training_args = TrainingArguments(
     output_dir='./results',
