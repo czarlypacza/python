@@ -2,3 +2,6 @@ checkpoint-*
 model*
 results*
 myenv
+.venv
+my_awesome_model*
+logs
