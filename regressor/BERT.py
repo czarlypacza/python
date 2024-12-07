@@ -103,17 +103,17 @@ model = AutoModelForSequenceClassification.from_pretrained(
 ).to("cuda")
 
 training_args = TrainingArguments(
-    output_dir="./my_awesome_model2",
+    output_dir="./new_model",
     logging_dir="./logs",
     logging_steps=100,
     learning_rate=2e-5,
-    per_device_train_batch_size=6,
-    per_device_eval_batch_size=6,
+    per_device_train_batch_size=24,
+    per_device_eval_batch_size=24,
     num_train_epochs=3,
     weight_decay=0.01,
-    eval_steps=500,
+    eval_steps=1000,
     save_total_limit=2,
-    save_steps=500,
+    save_steps=1000,
     eval_strategy="steps",
     save_strategy="steps",
     load_best_model_at_end=True,
@@ -134,7 +134,7 @@ trainer.train()
 
 print(trainer.evaluate(eval_dataset=tokenized_dataset["validate"]))
 
-trainer.save_model("./my_awesome_model")
+trainer.save_model("./new_model")
 
 # Test the model on a test inference
 
