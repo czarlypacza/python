@@ -34,103 +34,127 @@ def make_prediction(text):
     return predicted_label, probabilities
 
 def calculate_metrics(test_data, dataset_type):
-    total = len(test_data)
+    start_time = time.time()
+    analysis_results = [make_prediction(item["text"]) for item in test_data]
+    time_taken = time.time() - start_time
+
     correct = 0
-    # Initialize counts
-    true_positives = true_negatives = true_neutrals = 0
-    false_positives = false_negatives = false_neutrals = 0
+    total = len(test_data)
+    
+    # Positive metrics
+    true_positives = 0
+    false_negatives_positive = 0
+    false_positives = 0
+
+    # Negative metrics
+    true_negatives = 0
+    false_negatives_negative = 0
+    false_negatives = 0
+
+    true_neutrals = 0
+    false_negatives_neutral = 0
+    false_neutrals = 0
+
     neutral_predictions = 0
-    neutral_positive_misses = neutral_negative_misses = 0
+    neutral_positive_misses = 0
+    neutral_negative_misses = 0
 
     # Determine if the dataset includes the neutral class
     neutral_in_dataset = any(item['sentiment'] == 'neutral' for item in test_data)
 
-    # Start timing only predictions
-    prediction_time = 0.0
-    for item in test_data:
-        start_time = time.time()
-        predicted_label, probabilities = make_prediction(item['text'])
-        prediction_time += time.time() - start_time
-
-        true_label = item['sentiment']
-
-        if predicted_label == true_label:
-            correct += 1
-            if predicted_label == 'positive':
-                true_positives += 1
-            elif predicted_label == 'negative':
-                true_negatives += 1
-            elif predicted_label == 'neutral':
-                true_neutrals += 1
-        else:
-            if predicted_label == 'positive':
-                if true_label == 'negative' or true_label == 'neutral':
-                    false_positives += 1
-            elif predicted_label == 'negative':
-                if true_label == 'positive' or true_label == 'neutral':
-                    false_negatives += 1
-            elif predicted_label == 'neutral':
-                false_neutrals += 1
-                if true_label == 'positive':
-                    neutral_positive_misses += 1
-                elif true_label == 'negative':
-                    neutral_negative_misses += 1
-
-        # For neutralStats
-        if predicted_label == 'neutral':
+    for i in range(len(test_data)):
+        expected = test_data[i]["sentiment"]
+        predicted, _ = analysis_results[i]
+        
+        
+        if predicted == 'neutral':
             neutral_predictions += 1
+            if expected == 'positive':
+                neutral_positive_misses += 1
+                false_neutrals += 1
+                false_negatives_positive += 1
+            elif expected == 'negative':
+                neutral_negative_misses += 1
+                false_neutrals += 1
+                false_negatives_negative += 1
+            elif expected == 'neutral':
+                correct += 1
+                true_neutrals += 1
+        elif predicted == 'positive':
+            if expected == 'positive':
+                correct += 1
+                true_positives += 1
+            elif expected == 'negative':
+                false_positives += 1
+                false_negatives_negative += 1
+            elif expected == 'neutral':
+                false_negatives_neutral += 1
+                false_positives += 1
+        elif predicted == 'negative':
+            if expected == 'negative':
+                correct += 1
+                true_negatives += 1
+            elif expected == 'positive':
+                false_negatives += 1
+                false_negatives_positive += 1
+            elif expected == 'neutral':
+                false_negatives += 1
+                false_negatives_neutral += 1
 
-    # Calculate metrics
-    accuracy = correct / total if total > 0 else 0
+        
+    accuracy = correct / total if total else 0
 
-    precision_pos = true_positives / (true_positives + false_positives or 1)
-    recall_pos = true_positives / (true_positives + false_negatives or 1)
-    f1_pos = 2 * (precision_pos * recall_pos) / (precision_pos + recall_pos or 1)
+    # Calculate base metrics
+    precision_positive = true_positives / (true_positives + false_positives or 1)
+    recall_positive = true_positives / (true_positives + false_negatives_positive or 1)
+    f1_positive = 2 * (precision_positive * recall_positive) / (precision_positive + recall_positive or 1)
 
-    precision_neg = true_negatives / (true_negatives + false_negatives or 1)
-    recall_neg = true_negatives / (true_negatives + false_positives or 1)
-    f1_neg = 2 * (precision_neg * recall_neg) / (precision_neg + recall_neg or 1)
+    precision_negative = true_negatives / (true_negatives + false_negatives or 1)
+    recall_negative = true_negatives / (true_negatives + false_negatives_negative or 1)
+    f1_negative = 2 * (precision_negative * recall_negative) / (precision_negative + recall_negative or 1)
 
-    # Calculate neutral metrics if neutral class is present
+    # Calculate neutral metrics if present in dataset
+    precision_neutral = None
+    recall_neutral = None
+    f1_neutral = None
+
     if neutral_in_dataset:
-        precision_neu = true_neutrals / (true_neutrals + false_neutrals or 1)
-        recall_neu = true_neutrals / (true_neutrals + false_neutrals or 1)
-        f1_neu = 2 * (precision_neu * recall_neu) / (precision_neu + recall_neu or 1)
-    else:
-        precision_neu = recall_neu = f1_neu = None
+        precision_neutral = true_neutrals / (true_neutrals + false_neutrals or 1)
+        recall_neutral = true_neutrals / (true_neutrals + false_negatives_neutral or 1)
+        f1_neutral = 2 * (precision_neutral * recall_neutral) / (precision_neutral + recall_neutral or 1)
 
     result = {
-        "datasetType": dataset_type,
-        "timeTaken": int(prediction_time * 1000),  # Convert to milliseconds
-        "accuracy": accuracy,
-        "precision": {
-            "positive": precision_pos,
-            "negative": precision_neg
+        'datasetType': dataset_type,
+        'timeTaken': int(time_taken * 1000),
+        'accuracy': accuracy,
+        'precision': {
+            'positive': precision_positive,
+            'negative': precision_negative
         },
-        "recall": {
-            "positive": recall_pos,
-            "negative": recall_neg
+        'recall': {
+            'positive': recall_positive,
+            'negative': recall_negative
         },
-        "f1Score": {
-            "positive": f1_pos,
-            "negative": f1_neg
+        'f1Score': {
+            'positive': f1_positive,
+            'negative': f1_negative
         },
-        "totalSamples": total,
-        "correctPredictions": correct,
-        "neutralStats": {
-            "total": neutral_predictions,
-            "missedPositives": neutral_positive_misses,
-            "missedNegatives": neutral_negative_misses,
-            "percentage": (neutral_predictions / total) * 100,
-            "trueNeutrals": true_neutrals if neutral_in_dataset else None
+        'totalSamples': total,
+        'correctPredictions': correct,
+        'neutralStats': {
+            'total': neutral_predictions,
+            'missedPositives': neutral_positive_misses,
+            'missedNegatives': neutral_negative_misses,
+            'percentage': (neutral_predictions / total) * 100 if total else 0,
+            'trueNeutrals': true_neutrals if neutral_in_dataset else None
         }
     }
 
     # Add neutral metrics if applicable
     if neutral_in_dataset:
-        result["precision"]["neutral"] = precision_neu
-        result["recall"]["neutral"] = recall_neu
-        result["f1Score"]["neutral"] = f1_neu
+        result['precision']['neutral'] = precision_neutral
+        result['recall']['neutral'] = recall_neutral
+        result['f1Score']['neutral'] = f1_neutral
 
     return result
 
@@ -188,27 +212,29 @@ def analyze_additional_dataset(data_dir):
     return calculate_metrics(additional_data, "additional")
 
 def main():
-    data_dir = Path('/media/michal/dev1/sentiment/python-sentiment/data')
-    
-    # Analyze standard dataset
-    standard_results = analyze_standard_dataset(data_dir)
-    
-    # Analyze Twitter dataset
-    twitter_results = analyze_twitter_dataset(data_dir)
-    
-    # Analyze additional dataset
-    additional_results = analyze_additional_dataset(data_dir)
-    
-    # Save results
-    results = {
-        'standardResults': standard_results,
-        'twitterResults': twitter_results,
-        'additionalResults': additional_results
-    }
-    with open('./results.json', 'w') as f:
-        json.dump(results, f, indent=2)
-    
-    print("Analysis complete. Results saved to results.json")
+    for i in range(1,4):
+        data_dir = Path('/media/michal/dev1/sentiment/python-sentiment/data')
+        
+        # Analyze standard dataset
+        standard_results = analyze_standard_dataset(data_dir)
+        
+        # Analyze Twitter dataset
+        twitter_results = analyze_twitter_dataset(data_dir)
+        
+        # Analyze additional dataset
+        additional_results = analyze_additional_dataset(data_dir)
+        
+        # Save results
+        results = {
+            'standardResults': standard_results,
+            'twitterResults': twitter_results,
+            'additionalResults': additional_results
+        }
+        with open('./results_BERT_class_'+str(i)+'.json', 'w') as f:
+            json.dump(results, f, indent=2)
+        
+        print("Analysis complete. Results saved to results.json")
+        time.sleep(60*5)
 
 if __name__ == '__main__':
     main()
